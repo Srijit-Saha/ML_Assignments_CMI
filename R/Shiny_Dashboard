@@ -1,0 +1,204 @@
+
+### An RShiny Dashboard for Data Analytics.
+
+
+library(shiny)
+library(ggplot2)
+library(shinydashboard)
+
+newdat=read.csv("C:\\Users\\User\\Downloads\\archive\\chess_games.csv")
+df=data.frame(newdat)
+thresh=2200
+
+gm=subset(newdat,newdat$white_rating>thresh & newdat$black_rating>thresh)
+sam=newdat[sample(nrow(df),144),]
+face=gm[c(2,4,5)]
+face1=sam[c(2,4,5)]
+
+
+ui = dashboardPage(
+  dashboardHeader(title="Chess Games - Interactive Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Chess games ",tabName = "sam"),
+      menuItem("Masters",tabName = "gms"),
+      menuItem("Statistical Info", tabName = "stat1"),
+      menuItem("Statistical Info(Masters)", tabName = "stat2")
+      
+      )
+  ),
+  dashboardBody(
+    tabItems(
+      tabItem("sam",
+              tabsetPanel(
+                
+                         
+                tabPanel("Data Visualisation 1",h2("These are sampled games from the dataset of size 144.(for benchmark of comparison with the higher rated players)"),
+                         
+                         
+                         fluidPage(selectInput('sel','Choose to group by: ',colnames(face1)),
+                           actionButton("sb1","Player Parity Scatter"),actionButton("sb2","Opening moves v/s turns played"),
+                         
+                         plotOutput("graphs1")
+                         )),
+                        tabPanel("Player Records",h2("Select player names from dropdown menu to see their game records"),
+                                 fluidPage(  selectInput("smb","Select among Black pieces Players",choice=sam$white_id),
+                                             selectInput("smw","Select among White Pieces Player",choice=sam$black_id),
+                                             actionButton("wh","White Results"),
+                                             actionButton("bl","Black Results"),
+                                             tableOutput("table"),
+                                             textOutput("table1")))
+                                 
+                                                                     
+                                                                     
+                )
+                
+                
+                ),
+      
+      tabItem("gms",
+              tabsetPanel(
+                tabPanel("Data Visualisation 2",h2("The Grand Games!"),fluidPage(selectInput('sel1','Choose to group by: ',colnames(face)),
+                  actionButton("gb1","Player Rating Comparison"),actionButton("gb2","Opening moves v/s Turns played"),
+                 plotOutput("graphs"),
+                  textOutput("tex"))
+
+                                              ),
+                
+                
+                tabPanel("Player Records(Study games)",h2("Select player names from dropdown menu to see their game records"),fluidPage(selectInput('gmw',"Choose among the Gm's(White pieces)",gm$white_id),
+                                              selectInput('gmb',"Choose among the Gm's(Black pieces)",gm$black_id),
+                                              actionButton("white","White P Records"),
+                                              actionButton("black","Black P Records"),
+                                              
+                                              tableOutput("Indi"),
+                                              textOutput("aes")
+
+                ))
+              )
+      ),
+      tabItem("stat2",tabsetPanel(
+        tabPanel("Barcharts",h2("Descriptive stats(Masters)"),fluidPage(actionButton("button1","Rated"),actionButton("button2","Time Increment"),actionButton("button3","Turns"),actionButton("button4","Opening moves"),
+                 plotOutput("io")))
+        ,
+        tabPanel("Boxplots",fluidPage(actionButton("button_1","Turns"),actionButton("button_2","Opening Moves"),plotOutput("io1"))),
+        tabPanel("Q-Q Plots",fluidPage(actionButton("button_3","White pieces-rating disbn."),actionButton("button_4","Black pieces-ratings disbn."),plotOutput("io2")))
+        )),
+      tabItem("stat1",tabsetPanel(
+        tabPanel("Barcharts",h2("Descriptive stats(Sample)"),fluidPage(actionButton("button1s","Rated"),actionButton("button2s","Time Increment"),actionButton("button3s","Turns"),actionButton("button4s","Opening moves"),
+                                                                         plotOutput("ios")))
+        ,
+        tabPanel("Boxplots",fluidPage(actionButton("button_1s","Turns"),actionButton("button_2s","Opening Moves"),plotOutput("io1s"))),
+        tabPanel("Q-Q Plots",fluidPage(actionButton("button_3s","White pieces-rating disbn."),actionButton("button_4s","Black pieces-ratings disbn."),plotOutput("io2s")))))
+      
+              
+    )
+  )
+)
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+
+  observeEvent(input$bt,(output$graphs=renderPlot({
+    openers=c()
+    for (i in 1:10){
+      openers[i]=sum(newdat$opening_moves>=i)
+    } 
+    plot(openers,type='l')
+  })))
+  output$tex = renderText({print("We have tried to spot any differences in the gameplay methods between different categories of players segregated according to their ratings by making a visualisation toolset for the User.")})
+  
+   observeEvent(input$gb1, (output$graphs = renderPlot({ 
+    ggplot(gm,aes(x=white_rating,y=black_rating)) + geom_point(aes(color=gm[,input$sel1])) + 
+      facet_wrap(.~table(gm[,input$sel1])) + xlab("White rating") + ylab("Black Rating")
+    })
+    ))
+    observeEvent(input$gb2, (output$graphs = renderPlot({ 
+        ggplot(gm,aes(x=gm$opening_moves,y=turns)) + geom_point(aes(color=gm[,input$sel1])) +
+        facet_wrap(.~table(gm[,input$sel1]), ) + xlab("Opening moves") + ylab("Turns")
+      })))
+
+    observeEvent(input$sb1, (output$graphs1 = renderPlot({ 
+      ggplot(sam,aes(x=white_rating,y=black_rating)) + geom_point(aes(color=sam[,input$sel])) +
+        facet_wrap(.~table(sam[,input$sel])) + xlab("White rating") + ylab("Black Rating")
+    })
+    ))
+    observeEvent(input$sb2, (output$graphs1 = renderPlot({ 
+      ggplot(sam,aes(x=opening_moves,y=turns)) + geom_point(aes(color=sam[,input$sel])) +
+        facet_wrap(.~table(sam[,input$sel]),scales = "free") + xlab("Opening moves") + ylab("Turns")
+    })))
+    
+    observeEvent(input$white,(output$Indi=renderTable({
+      each=subset(gm,gm$white_id==input$gmw | gm$black_id==input$gmw)
+      ddf=data.frame(each)
+      each=each[c(1:10,12,13)]
+    })))
+    observeEvent(input$black,(output$Indi=renderTable({
+      each1=subset(gm,gm$white_id==input$gmb | gm$black_id==input$gmb)
+      ddf1=data.frame(each1)
+      each1=each1[c(1:10,12,13)]
+      
+    })))
+   
+    observeEvent(input$wh,(output$table=renderTable({
+      each=subset(sam,sam$white_id==input$smw | sam$black_id==input$smw)
+      ddf=data.frame(each)
+      each=each[c(1:10,12,13)]
+    })))
+    
+    observeEvent(input$bl,(output$table=renderTable({
+      each1=subset(sam,sam$white_id==input$smb | sam$black_id==input$smb)
+      ddf1=data.frame(each1)
+      each1=each1[c(1:10,12,13)]
+    })))
+    observeEvent(input$wh,(output$table1=renderText({
+      each2=subset(sam,sam$white_id==input$smw | sam$black_id==input$smw)
+      ddf=data.frame(each2)
+      if(dim(each2)[1]>0)
+        print("Record(s) found!")
+      
+    })))
+    
+    observeEvent(input$bl,(output$table1=renderText({
+      each3=subset(sam,sam$white_id==input$smb | sam$black_id==input$smb)
+      ddf1=data.frame(each3)
+      if(dim(each3)[1]>0)
+        print("Record(s) found!")
+    })))
+    observeEvent(input$white,(output$aes=renderText({
+      each=subset(gm,gm$white_id==input$gmw | gm$black_id==input$gmw)
+      ddf=data.frame(each)
+      if (dim(each)[1]>0)
+        print("Record(s) found!")
+      
+          })))
+    observeEvent(input$black,(output$aes=renderText({
+      each1=subset(gm,gm$white_id==input$gmb | gm$black_id==input$gmb)
+      ddf1=data.frame(each1)
+      if (dim(each1)[1]>0)
+        print("Record(s) found!")
+      
+    })))
+    observeEvent(input$button1,(output$io= renderPlot({ggplot(gm,aes(gm$rated)) +  geom_bar() + xlab("Rated/Unrated") + ylab("freq")})))
+    observeEvent(input$button2,(output$io= renderPlot({ggplot(gm,aes(time_increment)) +  geom_bar() + xlab("Time increments") + ylab("freq") })))    
+    observeEvent(input$button3,(output$io= renderPlot({ggplot(gm,aes(turns)) +  geom_bar() + xlab("No. of Turns") + ylab("freq") })))    
+    observeEvent(input$button4,(output$io= renderPlot({ggplot(gm,aes(opening_moves)) +  geom_bar() + xlab("Opening Moves") + ylab("freq")})))  
+    observeEvent(input$button_1,(output$io1= renderPlot({ggplot(gm,aes(turns)) +  geom_boxplot(fill = "lightgray", color = "black") })))
+    observeEvent(input$button_2,(output$io1= renderPlot({ggplot(gm,aes(opening_moves)) +  geom_boxplot(fill = "lightgray", color = "black") })))
+    observeEvent(input$button_3,(output$io2= renderPlot({qqnorm(gm$white_rating)   })))
+    observeEvent(input$button_4,(output$io2= renderPlot({qqnorm(gm$black_rating)   })))
+    observeEvent(input$button1s,(output$ios= renderPlot({ggplot(sam,aes(rated)) +  geom_bar() + xlab("Rated/Unrated") + ylab("freq")})))
+    
+    observeEvent(input$button2s,(output$ios= renderPlot({ggplot(sam,aes(time_increment)) +  geom_bar() + xlab("Time increments") + ylab("freq") })))    
+    observeEvent(input$button3s,(output$ios= renderPlot({ggplot(sam,aes(turns)) +  geom_bar() + xlab("No. of Turns") + ylab("freq") })))    
+    observeEvent(input$button4s,(output$ios= renderPlot({ggplot(sam,aes(opening_moves)) +  geom_bar() + xlab("Opening Moves") + ylab("freq")})))  
+    observeEvent(input$button_1s,(output$io1s= renderPlot({ggplot(sam,aes(turns)) +  geom_boxplot(fill = "lightgray", color = "black") + xlab("No. of Turns")})))
+    observeEvent(input$button_2s,(output$io1s= renderPlot({ggplot(sam,aes(opening_moves)) +  geom_boxplot(fill = "lightgray", color = "black") + xlab("Disbn of no. of opening moves")})))
+    observeEvent(input$button_3s,(output$io2s= renderPlot({qqnorm(sam$white_rating)   })))
+    observeEvent(input$button_4s,(output$io2s= renderPlot({qqnorm(sam$black_rating)   })))
+    
+}
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+###End of Code
